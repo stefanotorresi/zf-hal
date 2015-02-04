@@ -378,6 +378,27 @@ class Hal extends AbstractHelper implements
     }
 
     /**
+     * Get the max depth for the Hal plugin.  This can be reset for multiple calls
+     * by calling setMaxDepth(null);
+     *
+     * @return int
+     */
+    public function getMaxDepth()
+    {
+        return $this->maxDepth;
+    }
+
+    /**
+     * Set the max depth
+     */
+    public function setMaxDepth($value)
+    {
+        $this->maxDepth = $value;
+
+        return $this;
+    }
+
+    /**
      * Retrieve a hydrator for a given entity
      *
      * Please use getHydratorForEntity().
@@ -479,8 +500,8 @@ class Hal extends AbstractHelper implements
 
         $metadataMap = $this->getMetadataMap();
 
-        if ($this->maxDepth === null && is_object($collection) && $metadataMap->has($collection)) {
-            $this->maxDepth = $metadataMap->get($collection)->getMaxDepth();
+        if ($this->getMaxDepth() === null && is_object($collection) && $metadataMap->has($collection)) {
+            $this->setMaxDepth($metadataMap->get($collection)->getMaxDepth());
         }
 
         $payload = $halCollection->getAttributes();
@@ -553,12 +574,12 @@ class Hal extends AbstractHelper implements
             $entityHash = spl_object_hash($entity);
             $this->entityHashStack[$entityHash] = get_class($entity);
 
-            if ($this->maxDepth === null && $metadataMap->has($entity)) {
-                $this->maxDepth = $metadataMap->get($entity)->getMaxDepth();
+            if ($this->getMaxDepth() === null && $metadataMap->has($entity)) {
+                $this->setMaxDepth($metadataMap->get($entity)->getMaxDepth());
             }
         }
 
-        $limitReached = isset($this->maxDepth) && $depth > $this->maxDepth;
+        $limitReached = $depth > $this->getMaxDepth();
 
         if (!$renderEntity || $limitReached) {
             $entity = array();
@@ -572,7 +593,7 @@ class Hal extends AbstractHelper implements
             if (is_object($value) && $metadataMap->has($value)) {
                 $childEntityHash = spl_object_hash($value);
 
-                if (isset($this->entityHashStack[$childEntityHash]) && $this->maxDepth === null) {
+                if (isset($this->entityHashStack[$childEntityHash]) && $this->getMaxDepth() === null) {
                     $message = sprintf(
                         "Circular reference detected: %s -> %s. %s.",
                         implode(' -> ', $this->entityHashStack),
@@ -616,11 +637,6 @@ class Hal extends AbstractHelper implements
         }
 
         $entity['_links'] = $this->fromResource($halEntity);
-
-        if ($limitReached) {
-            // reset the maxDepth so that the same instance of the plugin may be used again on a different metadata map
-            $this->maxDepth = null;
-        }
 
         if (isset($entityHash)) {
             unset($this->entityHashStack[$entityHash]);
